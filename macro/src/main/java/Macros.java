@@ -26,13 +26,13 @@ public class Macros {
      * em questão, sendo que o índice zero é reservado ao nome da macro.
      */
     private ArrayList<ArrayList<String>> defTab;
-    
+
     /**
      * Salva o nome das macros e os parâmetros delas pela ordem que foram
      * encontradas, sem seguir qualquer noção de nível
      */
     private ArrayList<ArrayList<String>> macrosParams;
-    
+
     /**
      * Salva o id das macros e dos "pais" delas, assim é possível saber o escopo
      * real da macro na hora da expansão, a posição zero é o nível mais alto e a
@@ -52,8 +52,14 @@ public class Macros {
     private ArrayList<ArrayList<String>> actualParam;
 
     /**
+     * Salva todas as linhas expandidas e processadas dos diferentes níveis da
+     * macro
+     */
+    private ArrayList<String> completeOutFile;
+
+    /**
      * Receberá as linhas da macro com os parâmetros já alterados
-    */
+     */
     ArrayList<ArrayList<String>> linhasMacroExpandida;
 
     // Último indice da defTab
@@ -61,16 +67,15 @@ public class Macros {
 
     // Último indice da macros
     private int mLastIndex = -1;
-
-    // Salva o nome do arquivo de saída
-    private String fileNameOutput;
+    BufferedWriter bw;
 
     /**
      * Carrega um arquivo de macros para ser processado
      *
      * @param fileNameInput
+     * @param fileNameOutput
      */
-    public Macros(String fileNameInput) {
+    public Macros(String fileNameInput, String fileNameOutput) {
         lines = new ArrayList<>();
         try {
             File arquivo = new File(fileNameInput);
@@ -90,14 +95,23 @@ public class Macros {
         macroHierarchy = new ArrayList<>();
         actualParam = new ArrayList<>();
         linhasMacroExpandida = new ArrayList<>();
+        completeOutFile = new ArrayList<>();
+
+        File fileOut = new File(fileNameOutput);
+        try {
+            FileOutputStream fos = new FileOutputStream(fileOut);
+            bw = new BufferedWriter(new OutputStreamWriter(fos));
+        } catch (FileNotFoundException e) {
+            System.out.println("Não conseguiu abrir o arquivo :(");
+        }
         //Printa o que tem no arquivo
 //        for(String line : lines){
 //            System.out.println(line);
 //        }
+
     }
 
-    public void processar(String fileNameOutput) {
-        this.fileNameOutput = fileNameOutput;
+    public void processar() {
 
         // Se d == true, então está processando macro, false caso contrário
         boolean d = false;
@@ -124,13 +138,13 @@ public class Macros {
                 for (int a = 0; a < defTab.get(dtLastIndex).size(); a++) {
                     System.out.println(defTab.get(dtLastIndex).get(a));
                 }
-                
+
                 // Se d == true então esta macro está dentro de outra macro,
                 // portanto um marcador será colocado neste ponto afim de indicar
                 // que há uma macro aqui, este marcador indicará o id
                 // referente à macroScopo/macroParams desta macro
                 if (d) {
-                    macroScopo.get(getScopoID(defTab.get(dtLastIndex-1).get(0))).add("###SubMacro:" + getScopoID(defTab.get(dtLastIndex).get(0)));
+                    macroScopo.get(getScopoID(defTab.get(dtLastIndex - 1).get(0))).add("###SubMacro:" + getScopoID(defTab.get(dtLastIndex).get(0)));
                 }
                 d = true;
                 System.out.println("==========");
@@ -151,11 +165,13 @@ public class Macros {
                     int scopoId = getScopoID(defTab.get(dtLastIndex).get(0));
                     macroScopo.get(scopoId).add(line);
                 } else if (!e) {
-                    writeLine(line);
+                    completeOutFile.add(line);
                 }
             }
             // Modo expansão
             if (e) {
+                //Salva a linha da definição da submacro na completeMacro
+                int submacroID;
                 String macroName = getMacroName(line);
 
                 int scopoID = getScopoID(getMacroName(macroName));
@@ -199,15 +215,44 @@ public class Macros {
                     for (String splited : spaceSplit) {
                         stringUnifiedLine = stringUnifiedLine + " " + splited;
                     }
-                    linhasMacroExpandida.get(scopoID).add(stringUnifiedLine);
+                    linhasMacroExpandida.get(scopoID).add(stringUnifiedLine.substring(1));
                 }
-                
+
+                if (hierarchy.size() > 1) {
+                    submacroID = completeOutFile.indexOf("###SubMacro:" + scopoID);
+                    if (submacroID != -1) {
+                        System.out.println("####|Submacro definida e encontrada|####");
+                        completeOutFile.remove(submacroID);
+                        for (String ln : linhasMacroExpandida.get(scopoID)) {
+                            completeOutFile.add(submacroID, ln);
+                            submacroID++;
+                        }
+                    } else {
+                        System.out.println("A submacro " + macrosParams.get(scopoID).get(0) + " não foi previamente definida, ela depende da macro: " + macrosParams.get(hierarchy.get(1)).get(0));
+                        return;
+                    }
+
+                } else {
+                    for (String ln : linhasMacroExpandida.get(scopoID)) {
+                        completeOutFile.add(ln);
+                    }
+                }
+
                 //Printa todas as linhas expandidas da macro
-                for (String aux : linhasMacroExpandida.get(hierarchy.size() - 1)) {
-                    System.out.println(aux);
+                for (String aux : completeOutFile) {
+                    System.out.println("| " + aux);
                 }
+                e = false;
+                // Escreve toda a macro no arquivo de texto
             }
 
+        }
+
+        writeLine(completeOutFile);
+        try {
+            bw.close();
+        } catch (IOException ex) {
+            Logger.getLogger(Macros.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
 
@@ -302,11 +347,30 @@ public class Macros {
         return nLine;
     }
 
-    private void writeLine(String line) {
-        File fout = new File(this.fileNameOutput);
+    /**
+     * Escreve no arquivo toda a lista passada
+     *
+     * @param lines
+     */
+    private void writeLine(ArrayList<String> lines) {
         try {
-            FileOutputStream fos = new FileOutputStream(fout);
-            BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(fos));
+            for (String aux : lines) {
+                bw.write(aux);
+                bw.newLine();
+            }
+        } catch (IOException ex) {
+            Logger.getLogger(Macros.class.getName()).log(Level.SEVERE, null, ex);
+            System.out.println("Não conseguiu escrever no arquivo");
+        }
+    }
+
+    /**
+     * Escreve no arquivo uma linha passada
+     *
+     * @param line
+     */
+    private void writeLine(String line) {
+        try {
             bw.write(line);
             bw.newLine();
         } catch (FileNotFoundException e) {
@@ -412,6 +476,5 @@ public class Macros {
         }
         return params;
     }
-
 
 }
