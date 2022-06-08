@@ -6,6 +6,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Scanner;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -67,7 +68,7 @@ public class Macros {
 
     // Último indice da macros
     private int mLastIndex = -1;
-    BufferedWriter bw;
+    BufferedWriter fileWriter;
 
     /**
      * Carrega um arquivo de macros para ser processado
@@ -100,14 +101,10 @@ public class Macros {
         File fileOut = new File(fileNameOutput);
         try {
             FileOutputStream fos = new FileOutputStream(fileOut);
-            bw = new BufferedWriter(new OutputStreamWriter(fos));
+            fileWriter = new BufferedWriter(new OutputStreamWriter(fos));
         } catch (FileNotFoundException e) {
             System.out.println("Não conseguiu abrir o arquivo :(");
         }
-        //Printa o que tem no arquivo
-//        for(String line : lines){
-//            System.out.println(line);
-//        }
 
     }
 
@@ -127,7 +124,7 @@ public class Macros {
 
             System.out.println("---- " + line);
 
-            if (isMacroName(line)) {
+            if (isMacroName(line) && !d) {
                 e = true; // Entra em modo de expansão
 
             } else if (line.contains("MCDEFN")) {
@@ -169,7 +166,7 @@ public class Macros {
                 }
             }
             // Modo expansão
-            if (e) {
+            if (e && !d) {
                 expandMacro(line);
                 e = false;
             }
@@ -178,7 +175,7 @@ public class Macros {
 
         writeData(completeOutFile);
         try {
-            bw.close();
+            fileWriter.close();
         } catch (IOException ex) {
             Logger.getLogger(Macros.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -204,27 +201,40 @@ public class Macros {
         System.out.println("Parametros passados: " + actualParam.get(scopoID));
 
         System.out.println("Nivel de Hierarquia: " + hierarchy.size());
-        String[] spaceSplit;
+        ArrayList<String> split = new ArrayList<>();
 
         boolean paramFound;
 
         int nvl = 0;
 
         for (int mIndex = 0; mIndex < linhasMacro.size(); mIndex++) {
+            boolean macroCall = false;
+            if (isMacroName(linhasMacro.get(mIndex))) {
+                split = getMacroParams(linhasMacro.get(mIndex));
+                macroCall = true;
+            } else {
+                split.addAll(Arrays.asList(linhasMacro.get(mIndex).split(" ")));
+            }
 
-            spaceSplit = linhasMacro.get(mIndex).split(" ");
-
-            for (int a = 0; a < spaceSplit.length; a++) {
+            for (int a = 0; a < split.size(); a++) {
 
                 paramFound = false;
 
                 for (int b = 1; b < macrosParams.get(hierarchy.get(nvl)).size(); b++) {
-                    if (spaceSplit[a].equals(macrosParams.get(hierarchy.get(nvl)).get(b))) {
-                        System.out.println("Encontrou: " + spaceSplit[a] + " = " + actualParam.get(hierarchy.get(nvl)).get(b - 1) + " na linha: " + linhasMacro.get(mIndex));
-                        spaceSplit[a] = actualParam.get(hierarchy.get(nvl)).get(b - 1);
+                    if (split.get(a).equals(macrosParams.get(hierarchy.get(nvl)).get(b))) {
+                        System.out.println("Encontrou: " + split.get(a) + " = " + actualParam.get(hierarchy.get(nvl)).get(b - 1) + " na linha: " + linhasMacro.get(mIndex));
+                        split.set(a, actualParam.get(hierarchy.get(nvl)).get(b - 1));
                         paramFound = true;
+                        break;
                     }
                 }
+                /**
+                 * Se o parâmetro não foi encontrado nesse nível e existe um
+                 * nível acima, então o parâmetro será buscado no nível seguinte
+                 * da hierarquia, o contador será decrementado para que o código
+                 * não siga em frente até que toda a hierarquia seja percorrida
+                 * ou até que o parâmetro seja encontrado
+                 */
                 if (!paramFound && (nvl + 1) < hierarchy.size()) {
                     a--;
                     nvl++;
@@ -233,9 +243,32 @@ public class Macros {
                 }
             }
             String stringUnifiedLine = "";
-            for (String splited : spaceSplit) {
+
+            // Se tem a chamada de uma macro dentro desta macro, então a mesma será expandida
+            if (macroCall) {
+
+                stringUnifiedLine = getMacroName(linhasMacro.get(mIndex)) + " " + split.get(0);
+                for (int i = 1; i < split.size(); i++) {
+                    stringUnifiedLine = stringUnifiedLine + ", " + split.get(i);
+                }
+
+                System.out.println("Expandindo macro dentro da macro: " + stringUnifiedLine);
+
+                expandMacro(stringUnifiedLine);
+                split.clear();
+                continue;
+            }
+
+            // Reconstrói a linha anteriormente separada
+            for (String splited : split) {
                 stringUnifiedLine = stringUnifiedLine + " " + splited;
             }
+            split.clear();
+
+            /**
+             * Substring(1) serve para remover o primeiro caractere que será um
+             * expaço em branco devido à forma que a linha foi reconstruida
+             */
             linhasMacroExpandida.get(scopoID).add(stringUnifiedLine.substring(1));
         }
 
@@ -258,6 +291,13 @@ public class Macros {
                 completeOutFile.add(ln);
             }
         }
+
+        /**
+         * Limpa a macro expandida pois ela já foi utilizada e se uma nova
+         * chamada for feita, então esta nova chamada não terá as linhas das
+         * expansões anteriores
+         */
+        linhasMacroExpandida.get(scopoID).clear();
 
         //Printa todas as linhas expandidas da macro
         for (String aux : completeOutFile) {
@@ -377,8 +417,8 @@ public class Macros {
     private void writeData(ArrayList<String> lines) {
         try {
             for (String aux : lines) {
-                bw.write(aux);
-                bw.newLine();
+                fileWriter.write(aux);
+                fileWriter.newLine();
             }
         } catch (IOException ex) {
             Logger.getLogger(Macros.class.getName()).log(Level.SEVERE, null, ex);
@@ -427,7 +467,7 @@ public class Macros {
      * houver macro, retorna null
      *
      * @param line
-     * @return nome da macro
+     * @return String nome da macro
      */
     private String getMacroName(String line) {
         String macroName = null;
@@ -446,7 +486,7 @@ public class Macros {
      * referentes a esta macro
      *
      * @param line
-     * @return ArrayList<String> parametros;
+     * @return ArrayList parametros;
      */
     private ArrayList<String> getMacroParams(String line) {
         String macroName = getMacroName(line);
