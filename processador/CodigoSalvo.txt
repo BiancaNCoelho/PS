@@ -1,0 +1,12 @@
+ASSEMBLY START 0
+MCDEFN
+SOMA Entrada1, Entrada2 . Definição da Macro SOMA
+LDA Entrada1
+LDB Entrada2
+ADDR B,A
+STA #MEM
+LDS MEM
+MCEND . Fim da definição da Macro
+SOMA #10,#15
+MEM RESW 1
+END ASSEMBLY
