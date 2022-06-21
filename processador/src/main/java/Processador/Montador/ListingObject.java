@@ -5,6 +5,7 @@ public class ListingObject {
     
 
     public int startingAddress;
+    public int startingInstruction;
     private int length;
     public int endAddress;
     public ArrayList<String> TextRecord;

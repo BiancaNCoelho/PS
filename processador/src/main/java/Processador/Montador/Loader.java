@@ -37,6 +37,8 @@ public class Loader {
                 addr++;
             }
         }
+        int instruction_start = listing_program.startingInstruction;
+        reg.setRegValue(instruction_start, 6);
     }
     
 }

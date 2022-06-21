@@ -110,42 +110,62 @@ public class Maquina {
         }
         return true;
     }
+public int armazenaNoEndereco(int ni, int operando){
+    
+    //Se Endr indireto realiza um acesso a memoria.
+    return ni==0x02 ? memory.getWord(operando) : operando;
+}
+public int carregaPalavra(int ni,int operando){
+    if(ni == 0x01)return operando;
+    operando = memory.getWord(operando);
+    if(ni == 0x02) operando = memory.getWord(operando);
+    return operando;
+}
+public int carregaUmByte(int ni,int operando){
+    if(ni == 0x01)return operando;
+    if(ni == 0x02) operando = memory.getByte(memory.getWord(operando));
+    return memory.getByte(operando);
+}
+    public boolean loadF3F4(int opcode,int ni,int operand) {
+switch (opcode) {
+     case 0x0: //LDA
+         registers.setRegValue(carregaPalavra(ni, operand), A);
+         break;
+     case 0x68: //LDB
+        registers.setRegValue(carregaPalavra(ni, operand), B);
+         break;
+     case 0x50://LDCH
+         int vA = registers.getRegValue(A); //carrega conteúdo em A
+         vA = vA & 0xFFFF00 | carregaUmByte(ni, operand) & 0xFF;
+         registers.setRegValue(vA,A);
+         break;
+     case 0x08: //LDL
+         registers.setRegValue(carregaPalavra(ni, operand),L);
+         break;
+     case 0x6C: //LDS
+         registers.setRegValue(carregaPalavra(ni, operand), S);
+         break;
+     case 0x74: //LDT
+         registers.setRegValue(carregaPalavra(ni, operand), T);
+         break;
+     case 0x04: //LDX
+         registers.setRegValue(carregaPalavra(ni, operand), X);
+         break;
+    //INSTRUÇÕES DE ARMAZENAMENTO - STORES
+     case 0x0C://STA
+         int VA = registers.getRegValue(A);
+         memory.setword(armazenaNoEndereco(ni, operand),VA);
+     case 0x3C: //J
+        
 
-    public boolean loadF3F4(int opcode, int operand) {
-
-        switch (opcode) {
-            case 0x0: //LDA
-                registers.setRegValue(operand, A);
-                break;
-            case 0x68: //LDB
-                registers.setRegValue(operand, B);
-                break;
-            case 0x50://LDCH
-                int vA = registers.getRegValue(A); //carrega conteúdo em A
-                vA = vA & 0xFFFF00 | operand & 0xFF;
-                registers.setRegValue(vA, A);
-                break;
-            case 0x08: //LDL
-                registers.setRegValue(operand, L);
-                break;
-            case 0x6C: //LDS
-                registers.setRegValue(operand, S);
-                break;
-            case 0x74: //LDT
-                registers.setRegValue(operand, T);
-                break;
-            case 0x04: //LDX
-                registers.setRegValue(operand, X);
-                break;
-            case 0x0C://STA
-                int VA = registers.getRegValue(A);
-                memory.setword(operand, VA);
-            default:
-                break;
-        }
-
-        return true;
-    }
+     default:
+         break;
+ }
+ 
+ 
+ return true;
+}
+        
 
     public int loadByte() { //trocar o nome por Fetch !???
         int b = memory.getByte(registers.getRegValue(6));
@@ -199,69 +219,69 @@ public class Maquina {
         return this.registers;
     }
     
-    public void exec() {
-        //busca o primeiro byte do object code
-        int fbyte = loadByte(); //Incluí opcode e ni
-        //busca o 2' byte do object code
-        int sbyte = loadByte(); //incluí xbpe e 4 bits do disp
+    public void exec(){
+ //busca o primeiro byte do object code
+ int fbyte = loadByte(); //Incluí opcode e ni
+ //busca o 2' byte do object code
+ int sbyte = loadByte(); //incluí xbpe e 4 bits do disp
 
-        //Tenta executar F2. Só necessita dos 2 primeiros bytes
-        if (loadF2(fbyte, sbyte)) {
-            return;
-        }
-
-        //Tenta executar F3 ou F4
-        int tbyte = loadByte(); //inclui restante do disp ou parte do addr
-        int ni = fbyte & NI_MASK;
-        int xbpe = (sbyte & XBPE_MASK) >> 4;
-        int operando;
-        int TA;
+ //Tenta executar F2. Só necessita dos 2 primeiros bytes
+ if(loadF2(fbyte, sbyte)) return;
+ 
+ //Tenta executar F3 ou F4
+ int tbyte = loadByte(); //inclui restante do disp ou parte do addr
+ int ni = fbyte & NI_MASK;
+ int xbpe = (sbyte & XBPE_MASK) >> 4;
+ //int operando;
+ int TA;
 // 12 bits displacement, formado por ultimos 4 bits de sbyte e 8 bits de tbyte
-        int disp = ((sbyte & 0x0F) << 8) + tbyte;
-
-        //OBTENDO O CALCULO DO TA
-        if (ni == 0) {
-            //formato SIC Standard - 15 bits TA
-            TA = calculaStandardTA(sbyte, tbyte);
-        } else if (isExtendedAddr(xbpe)) { //formato extendido addr = 20bits
-
-            //Formato extendido nao permitido com (B) ou (PC) relative
-            if ((xbpe & 0x06) == 2 || (xbpe & 0x06) == 4) {
-                System.out.println("Formato nao suportado");
-                return;
-            }
-            int ftbyte = loadByte(); // Carrega o 4º
+ int disp;
+ 
+ //OBTENDO O CALCULO DO TA
+ if(ni ==0){
+     //formato SIC Standard - 15 bits TA
+     TA = calculaStandardTA(sbyte, tbyte);
+ }
+ else if(isExtendedAddr(xbpe)){ //formato extendido addr = 20bits
+     
+     //Formato extendido nao permitido com (B) ou (PC) relative
+     if((xbpe & 0x06) == 2 || (xbpe & 0x06) == 4){
+         System.out.println("Formato nao suportado");
+         return;
+     }
+     int ftbyte = loadByte(); // Carrega o 4º
 //20 bits addr, formado por 12 +signitivativos do disp + 8 bits do fbyte
-            int addr = (disp << 8) + ftbyte;
-            TA = addr;
-        } //Formato 12 bits TA: disp + (B) ou disp + (PC)
-        else {
-            // TA = disp + (B) + (PC) nao permitido
-            if ((xbpe & 0x06) == 0x06) {
-                System.out.println("Formato nao suportado");
-                return;
-            }
-            TA = calculaTA((xbpe & 0x06), disp);
-        }
-        //Uso do registrador indexador (x)
-        if ((xbpe & X_MASK) == 0x8) {
-            //Suportado apenas no modo de enderecamento simples
-            if (ni == 0x0 || ni == 0x3) {
-                TA += registers.getRegValue(X);
-            } else {
-                System.out.println("Formato nao suportado");
-                return;
-            }
+     int addr = ((((sbyte &0x0F) << 8) + tbyte) << 8) + ftbyte;
+     TA = addr;
+ }
+ //Formato 12 bits TA: disp + (B) ou disp + (PC)
+ else{
+     // TA = disp + (B) + (PC) nao permitido
+     disp = ((sbyte &0x0F) << 8) + tbyte;
+     if(disp >=2048){
+        disp -=4096;
+     }
+     TA = calculaTA((xbpe & 0x06), disp);
+ }
+ //Uso do registrador indexador (x)
+ if((xbpe & X_MASK) == 0x8){
+     //Suportado apenas no modo de enderecamento simples
+     if(ni == 0x0 || ni == 0x3){
+         TA += registers.getRegValue(X);
+     }
+     else{
+         System.out.println("Formato nao suportado");
+         return;
+     }
 
-        }
-        operando = getOperand(ni, TA);
-        //executa instrução de formato f3 ou f4
-        if (loadF3F4((fbyte & OPCODE_MASK), operando)) {
-            return;
-        } else {
-            System.out.println("Opcode Invalido!");
-        }
-
-    }
+ }
+ //operando = getOperand(ni,TA);
+ //executa instrução de formato f3 ou f4
+ if(loadF3F4((fbyte & OPCODE_MASK), ni, TA))return;
+ else{
+     System.out.println("Opcode Invalido! (na máquina)");
+ } 
+ 
+}
 
 }

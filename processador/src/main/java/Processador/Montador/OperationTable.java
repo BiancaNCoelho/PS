@@ -6,7 +6,7 @@ public class OperationTable{
     public HashMap<String,Mnemonico> OPTAB = new HashMap<>();
     private Mnemonico add = new Mnemonico(0x18,3);
     private Mnemonico addr = new Mnemonico(0x90,2);
-    private Mnemonico clear = new Mnemonico(0x2,2);
+    private Mnemonico clear = new Mnemonico(0xB4,2);
     private Mnemonico and = new Mnemonico(0x40,3);
     private Mnemonico comp = new Mnemonico(0x28,3);
     private Mnemonico compr = new Mnemonico(0xA0,2);

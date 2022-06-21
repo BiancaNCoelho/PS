@@ -66,7 +66,7 @@ public final class MvInterface implements ActionListener {
 
         JButton attEnd = new JButton("Atualizar endereços");
 //        JButton loadMem = new JButton("Carregar para memória");
-        JButton save = new JButton("Salvar e compilar");
+        JButton save = new JButton("Salvar e montar");
         JButton execute = new JButton("Executar");
         ActionListener evento = this;
 
