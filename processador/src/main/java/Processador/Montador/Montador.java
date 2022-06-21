@@ -156,6 +156,15 @@ public class Montador {
             if(disp <0){
                 string_disp = String.format("%1$01X", disp & 0xFFF);
             }
+            else if(disp >=2048){
+                System.out.println("formato SIC padrão detectado!");
+                ni = 0x0;
+                disp +=PC;
+                string_disp = String.format("%1$04X", disp & 0x7FFF);
+                String firstByte = String.format("%1$02X", (opcode + ni) & 0xFF);
+                return firstByte + string_disp;
+
+            }
             else{
                 string_disp = String.format("%1$03X", disp & 0xFFF);
             }

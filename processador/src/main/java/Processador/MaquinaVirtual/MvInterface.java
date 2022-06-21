@@ -72,7 +72,7 @@ public final class MvInterface implements ActionListener {
 
         frame.setTitle("Processador Assembly - Grupo 2");
         frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
-        frame.setMinimumSize(new Dimension(1250, 720));
+        frame.setMinimumSize(new Dimension(720, 480));
 
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.getContentPane().add(panel);

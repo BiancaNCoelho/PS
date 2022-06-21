@@ -128,6 +128,15 @@ public int carregaUmByte(int ni,int operando){
 }
     public boolean loadF3F4(int opcode,int ni,int operand) {
 switch (opcode) {
+
+    /*
+     * **
+     * ****
+     * ****** LOADS <>enderecamento imediato possivel<>
+     * ****
+     * **
+     * *
+     */
      case 0x0: //LDA
          registers.setRegValue(carregaPalavra(ni, operand), A);
          break;
@@ -151,13 +160,66 @@ switch (opcode) {
      case 0x04: //LDX
          registers.setRegValue(carregaPalavra(ni, operand), X);
          break;
-    //INSTRUÇÕES DE ARMAZENAMENTO - STORES
+         /*
+         * **
+         * ****
+         * ****** STORES <>enderecamento imediato nao permitido<>
+         * ****
+         * **
+         */
      case 0x0C://STA
          int VA = registers.getRegValue(A);
          memory.setword(armazenaNoEndereco(ni, operand),VA);
+         break;
+    case 0x78: //STB
+        int VB = registers.getRegValue(B);
+        memory.setword(armazenaNoEndereco(ni, operand),VB);
+        break;
+    case 0x14: //STL
+        int VL = registers.getRegValue(L);
+        memory.setword(armazenaNoEndereco(ni, operand),VL);
+        break;
+    case 0x7C: //STS
+        int VS = registers.getRegValue(S);
+        memory.setword(armazenaNoEndereco(ni, operand),VS);
+        break;
+    case 0x84: //STT
+        int VT = registers.getRegValue(T);
+        memory.setword(armazenaNoEndereco(ni, operand),VT);
+        break;
+    case 0x10:
+        int VX = registers.getRegValue(X);
+        memory.setword(armazenaNoEndereco(ni, operand),VX);
+        break;
+        /*
+         * **
+         * ****
+         * ****** JUMPS <>GET UP AND JUMP HEHE<>
+         * ****
+         * **
+         */
      case 0x3C: //J
-        
-
+        registers.setRegValue(armazenaNoEndereco(ni, operand),PC);
+        break;
+    case 0x30: //JEQ
+        if(registers.getRegValue(SW) == 0x3D){
+            registers.setRegValue(armazenaNoEndereco(ni, operand), PC);
+        }
+        break;
+    case 0x34: //JGT >
+        if(registers.getRegValue(SW) == 0x3E){
+            registers.setRegValue(armazenaNoEndereco(ni, operand), PC);
+        }
+        break;
+    case 0x38: //JLT <
+        if(registers.getRegValue(SW) == 0x3C){
+            registers.setRegValue(armazenaNoEndereco(ni, operand), PC);
+        }
+        break;
+    case 0x48: //JSUB
+        registers.setRegValue(registers.getRegValue(PC), L);
+        registers.setRegValue(armazenaNoEndereco(ni, operand), PC);
+        break;
      default:
          break;
  }
